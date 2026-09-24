@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OttoTHON — Astronauts vs Aliens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#04070f;
+    --bg-mid:#0a1330;
+    --panel:rgba(255,255,255,0.045);
+    --panel-border:rgba(146,190,255,0.16);
+    --text-primary:#eef3fb;
+    --text-muted:#8ca0c4;
+    --astro-a:#3b6fe0;
+    --astro-b:#8fd0ff;
+    --alien-a:#0fae8f;
+    --alien-b:#7cf4d6;
+    --live-dot:#4ee1a0;
+    --gold:#ffcf6b;
+    --radius-lg:20px;
+    --radius-sm:12px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, #142556 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 100%, #0c2a3a 0%, transparent 55%),
+      linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 55%, var(--bg-deep) 100%);
+    font-family:'Inter', sans-serif;
+    color:var(--text-primary);
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  #stars{position:fixed; inset:0; z-index:0; pointer-events:none;}
+  .star{position:absolute; background:#fff; border-radius:50%; animation:twinkle ease-in-out infinite;}
+  @keyframes twinkle{ 0%,100%{opacity:.15;} 50%{opacity:1;} }
+
+  #confetti{ position:fixed; inset:0; z-index:5; pointer-events:none; overflow:hidden; }
+  .confetti-piece{ position:absolute; top:-5%; border-radius:2px; animation:fall linear forwards; }
+  @keyframes fall{ to{ transform:translateY(115vh) rotate(540deg); opacity:.9; } }
+
+  .wrap{ position:relative; z-index:1; max-width:960px; margin:0 auto; padding:36px 20px 64px; }
+
+  header{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:0px; }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand-text .name{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:22px; letter-spacing:0.2px; }
+  .brand-text .tag{ font-size:11px; color:var(--text-muted); letter-spacing:0.5px; }
+  .clock-badge{ display:flex; align-items:center; gap:10px; padding:9px 16px; background:var(--panel); border:1px solid var(--panel-border); border-radius:999px; }
+  .live-dot{ width:8px; height:8px; border-radius:50%; background:var(--live-dot); box-shadow:0 0 8px var(--live-dot); animation:pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{transform:scale(1); opacity:1;} 50%{transform:scale(1.4); opacity:.6;} }
+  .clock-badge .time{font-size:14px; font-weight:600;}
+  .clock-badge .date{font-size:11px; color:var(--text-muted);}
+
+  .manage-btn{
+    display:flex; align-items:center; gap:8px; padding:9px 16px; border-radius:999px; cursor:pointer;
+    background:var(--panel); border:1px solid var(--panel-border); color:var(--text-primary);
+    font-family:'Inter', sans-serif; font-size:13px; font-weight:600;
+  }
+  .manage-btn:hover{ border-color:rgba(146,190,255,0.4); }
+
+  .hero{text-align:center; margin-bottom:10px;}
+  h1{
+    font-family:'Space Grotesk', sans-serif; font-weight:700;
+    font-size:clamp(36px, 6vw, 56px); line-height:1.05; margin:0 0 14px;
+    background:linear-gradient(120deg, #ffffff 20%, #b9d4ff 55%, #7cf4d6 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .hero p{ color:var(--text-muted); font-size:16px; max-width:480px; margin:0 auto; }
+
+  .window-badge{
+    display:inline-flex; align-items:center; gap:8px; margin-top:5px;
+    padding:8px 18px; border-radius:999px; background:var(--panel); border:1px solid var(--panel-border);
+    font-size:13px; font-weight:600;
+  }
+  .window-badge .dot{ width:7px; height:7px; border-radius:50%; background:var(--live-dot); }
+
+  .banner{
+    background:rgba(255,196,90,0.09); border:1px solid rgba(255,196,90,0.35); color:#ffd58a;
+    font-size:13.5px; padding:14px 18px; border-radius:var(--radius-sm); margin:24px 0 28px; line-height:1.5;
+  }
+  .banner code{ background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:4px; font-size:12.5px; }
+  .banner.error{ background:rgba(255,110,110,0.08); border-color:rgba(255,110,110,0.35); color:#ffb3b3; }
+
+  .arena{
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:start;
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius-lg);
+    padding:28px; backdrop-filter:blur(6px);
+    opacity:0; transform:translateY(14px); animation:rise .7s ease forwards .1s;
+  }
+  @keyframes rise{ to{opacity:1; transform:translateY(0);} }
+
+  .team{display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px; padding:6px 14px;}
+  .team .icon{margin-bottom:10px;}
+  .team .label{ font-size:13px; letter-spacing:.3px; color:var(--text-muted); font-weight:600; }
+
+  .public-count{ font-size:14px; color:var(--text-primary); font-weight:600; margin-top:6px; }
+  .public-count .n{ font-family:'Space Grotesk', sans-serif; font-size:20px; }
+  .public-count-label{ font-size:11px; color:var(--text-muted); margin-bottom:10px; }
+
+  .team .amount{ font-family:'Space Grotesk', sans-serif; font-size:clamp(22px, 3.6vw, 28px); font-weight:700; margin-top:4px; }
+  .team.astronauts .amount:not(.locked-wrap){ color:var(--astro-b); }
+  .team.aliens .amount:not(.locked-wrap){ color:var(--alien-b); }
+  .team .amount-label{ font-size:11px; color:var(--text-muted); margin-top:-4px; letter-spacing:.3px; }
+  .team .pct{font-size:13px; color:var(--text-muted); font-weight:500; min-height:16px;}
+  .team.winner .amount{ color:var(--gold); text-shadow:0 0 18px rgba(255,207,107,0.55); }
+  .team.winner .icon{ filter:drop-shadow(0 0 10px rgba(255,207,107,0.5)); }
+
+  .locked{ color:var(--text-muted); letter-spacing:2px; font-weight:600; font-size:16px; }
+  .lock-icon{ display:inline-block; margin-right:2px; transform:translateY(1px); }
+
+  .vs{ display:flex; align-items:center; justify-content:center; padding:14px 26px 0; }
+  .vs span{
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:15px; color:var(--text-primary);
+    width:46px; height:46px; display:flex; align-items:center; justify-content:center; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,0.14), rgba(255,255,255,0.02)); border:1px solid var(--panel-border);
+  }
+
+  .bar-track{ margin-top:20px; height:14px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,0.06); display:flex; grid-column:1 / -1; }
+  .bar-astro{ background:linear-gradient(90deg, var(--astro-a), var(--astro-b)); transition:width .6s ease; }
+  .bar-alien{ background:linear-gradient(90deg, var(--alien-a), var(--alien-b)); transition:width .6s ease; }
+  .bar-track.locked-bar .bar-astro,
+  .bar-track.locked-bar .bar-alien{ background:rgba(255,255,255,0.12) !important; }
+
+  .roster{ width:100%; margin-top:16px; text-align:left; max-height:240px; overflow-y:auto; }
+  .roster::-webkit-scrollbar{ width:6px; }
+  .roster::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.15); border-radius:3px; }
+  .roster-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 4px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:13px;
+  }
+  .roster-row:last-child{ border-bottom:none; }
+  .roster-name{ color:var(--text-primary); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:110px; }
+  .roster-amount{ color:var(--text-muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .roster-give{ font-size:11.5px; text-decoration:none; padding:3px 9px; border-radius:999px; white-space:nowrap; font-weight:600; }
+  .team.astronauts .roster-give{ background:rgba(139,208,255,0.16); color:var(--astro-b); }
+  .team.aliens .roster-give{ background:rgba(124,244,214,0.16); color:var(--alien-b); }
+  .roster-empty{ color:var(--text-muted); font-size:12.5px; padding:10px 4px; text-align:center; }
+
+  .reveal-hint{ font-size:11.5px; color:var(--text-muted); margin-top:10px; }
+
+  .winner-banner{
+    grid-column:1 / -1; margin-top:22px; text-align:center; padding:22px;
+    border-radius:var(--radius-sm); border:1px solid rgba(255,207,107,0.4);
+    background:rgba(255,207,107,0.08); display:none;
+  }
+  .winner-banner.show{ display:block; animation:winnerIn .5s ease; }
+  @keyframes winnerIn{ from{opacity:0; transform:scale(.96);} to{opacity:1; transform:scale(1);} }
+  .winner-banner .trophy{ font-size:30px; }
+  .winner-banner .title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:22px; color:var(--gold); margin:6px 0 4px; }
+  .winner-banner .margin{ font-size:13.5px; color:var(--text-muted); }
+
+  .stats{ display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-top:24px; }
+  .stat-card{ background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius-sm); padding:20px; }
+  .stat-card .heading{ font-size:12px; color:var(--text-muted); margin-bottom:10px; font-weight:600; }
+  .stat-card .big{ font-family:'Space Grotesk', sans-serif; font-size:26px; font-weight:700; }
+  .stat-card .sub{font-size:12.5px; color:var(--text-muted); margin-top:4px;}
+
+  #revealBtn{
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:15px; letter-spacing:.3px;
+    padding:14px 32px; border:none; border-radius:999px; cursor:pointer; color:#04070f;
+    background:linear-gradient(90deg, var(--astro-b), var(--alien-b));
+    box-shadow:0 0 24px rgba(140,220,255,0.25);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  #revealBtn:hover{ transform:translateY(-2px); box-shadow:0 0 30px rgba(140,220,255,0.4); }
+  #revealBtn:disabled{ opacity:.6; cursor:wait; transform:none; }
+  #revealBtn.hidden{ display:none; }
+
+  footer{ text-align:center; margin-top:40px; color:var(--text-muted); font-size:12.5px; line-height:1.7; }
+
+/* ---------- Manage Teams modal ---------- */
+  #teamManagerOverlay{
+    position:fixed; inset:0; z-index:20; background:rgba(2,5,14,0.72); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  #teamManagerOverlay.open{ display:flex; }
+  .tm-panel{
+    width:100%; max-width:640px; max-height:82vh; display:flex; flex-direction:column;
+    background:#0b1226; border:1px solid var(--panel-border); border-radius:var(--radius-lg);
+    box-shadow:0 20px 60px rgba(0,0,0,0.5); overflow:hidden;
+  }
+  .tm-header{ padding:20px 22px 14px; border-bottom:1px solid rgba(255,255,255,0.07); }
+  .tm-header h2{ font-family:'Space Grotesk', sans-serif; font-size:19px; margin:0 0 4px; }
+  .tm-header .tm-sub{ font-size:12.5px; color:var(--text-muted); }
+  .tm-summary{ display:flex; gap:16px; margin-top:12px; font-size:12.5px; }
+  .tm-summary span b{ color:var(--text-primary); }
+  .tm-search{ padding:14px 22px 8px; }
+  .tm-search input{
+    width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--panel-border);
+    background:rgba(255,255,255,0.04); color:var(--text-primary); font-family:'Inter', sans-serif; font-size:14px;
+  }
+  .tm-search input:focus{ outline:none; border-color:rgba(146,190,255,0.5); }
+  .tm-manual{ padding:8px 22px 12px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; gap:8px; }
+  .tm-manual input{
+    flex:1; padding:9px 12px; border-radius:10px; border:1px solid var(--panel-border);
+    background:rgba(255,255,255,0.04); color:var(--text-primary); font-family:'Inter', sans-serif; font-size:13px;
+  }
+  .tm-manual input:focus{ outline:none; border-color:rgba(146,190,255,0.5); }
+  .tm-manual button{
+    padding:9px 16px; border-radius:10px; border:none; cursor:pointer; white-space:nowrap;
+    background:linear-gradient(90deg, var(--astro-b), var(--alien-b)); color:#04070f; font-weight:600; font-size:12.5px;
+  }
+  .tm-manual-status{ padding:0 22px 10px; font-size:11.5px; color:var(--text-muted); min-height:14px; }
+  .tm-manual-status.error{ color:#ffb3b3; }
+  .tm-manual-status.ok{ color:#9be6c8; }
+  .tm-list{ overflow-y:auto; flex:1; padding:6px 10px; }
+  .tm-row{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px;
+  }
+  .tm-row:hover{ background:rgba(255,255,255,0.03); }
+  .tm-row .tm-name{ flex:1; min-width:0; }
+  .tm-row .tm-name .n{ font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tm-row .tm-name .t{ font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tm-pill{
+    font-size:12px; font-weight:600; padding:6px 12px; border-radius:999px; cursor:pointer; white-space:nowrap;
+    border:1px solid var(--panel-border); background:transparent; color:var(--text-muted);
+  }
+  .tm-pill.astro-pill.active{ background:linear-gradient(90deg, var(--astro-a), var(--astro-b)); color:#04070f; border-color:transparent; }
+  .tm-pill.alien-pill.active{ background:linear-gradient(90deg, var(--alien-a), var(--alien-b)); color:#04070f; border-color:transparent; }
+  .tm-pill:hover{ border-color:rgba(146,190,255,0.4); }
+  .tm-empty{ text-align:center; color:var(--text-muted); font-size:13px; padding:20px 20px; line-height:1.5; }
+  .tm-footer{ padding:14px 22px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .tm-footer button{
+    font-family:'Inter', sans-serif; font-size:13px; font-weight:600; cursor:pointer; border-radius:999px; padding:9px 18px; border:none;
+  }
+  .tm-refresh{ background:transparent; border:1px solid var(--panel-border) !important; color:var(--text-muted); }
+  .tm-close{ background:linear-gradient(90deg, var(--astro-b), var(--alien-b)); color:#04070f; }
+
+  @media (max-width:640px){
+    .arena{grid-template-columns:1fr; gap:18px;}
+    .vs{padding:0;}
+    .stats{grid-template-columns:1fr;}
+    .roster{max-height:200px;}
+    .tm-panel{ max-height:88vh; }
+    .tm-manual{ flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+<div id="confetti"></div>
+
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+        <circle cx="17" cy="17" r="16" stroke="url(#g1)" stroke-width="1.5"/>
+        <path d="M17 6 L17 28 M6 17 L28 17" stroke="url(#g1)" stroke-width="1" opacity=".5"/>
+        <circle cx="17" cy="17" r="4.5" fill="url(#g1)"/>
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="34" y2="34">
+            <stop offset="0%" stop-color="#8fd0ff"/>
+            <stop offset="100%" stop-color="#7cf4d6"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="brand-text">
+        <div class="name">Aliens vs. Astronauts</div>
+        <div class="tag">For Upstate Golisano Children's Hospital</div>
+      </div>
+    </div>
+    <div class="manage-btn" id="openManagerBtn">⚙️ Manage Teams</div>
+    <div class="clock-badge">
+      <span class="live-dot"></span>
+      <div>
+        <div class="time" id="clockTime">--:--</div>
+        <div class="date" id="clockDate">--</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="window-badge"><span class="dot"></span><span id="competitionStatus">Loading window…</span></div>
+  </div>
+
+  <div id="banner"></div>
+
+  <div class="arena">
+    <div class="team astronauts" id="astroCard">
+      <div class="icon">
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+          <circle cx="26" cy="26" r="25" stroke="url(#astroG)" stroke-width="1.4" opacity=".5"/>
+          <ellipse cx="26" cy="24" rx="13" ry="14" fill="url(#astroG)" opacity=".18"/>
+          <ellipse cx="26" cy="24" rx="9" ry="10" fill="url(#astroG)" opacity=".9"/>
+          <ellipse cx="23.5" cy="21" rx="2.4" ry="2.8" fill="#04070f" opacity=".55"/>
+          <defs>
+            <linearGradient id="astroG" x1="13" y1="10" x2="39" y2="38">
+              <stop offset="0%" stop-color="#3b6fe0"/>
+              <stop offset="100%" stop-color="#8fd0ff"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="label" id="astroLabel">Team Astronauts</div>
+
+      <div class="public-count"><span class="n" id="astroCount">0</span> donations</div>
+      <div class="public-count-label" id="astroFreqLabel">in this window</div>
+
+      <div class="amount locked-wrap" id="astroAmount"><span class="locked"><span class="lock-icon">🔒</span>???</span></div>
+      <div class="amount-label">raised</div>
+      <div class="pct" id="astroPct">&nbsp;</div>
+      <div class="roster" id="astroRoster"></div>
+    </div>
+
+    <div class="vs"><span>VS</span></div>
+
+    <div class="team aliens" id="alienCard">
+      <div class="icon">
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+          <circle cx="26" cy="26" r="25" stroke="url(#alienG)" stroke-width="1.4" opacity=".5"/>
+          <path d="M26 8c8 0 12 8 10 17-1.3 6-5 12-10 12s-8.7-6-10-12C14 16 18 8 26 8Z" fill="url(#alienG)" opacity=".9"/>
+          <ellipse cx="21.5" cy="23" rx="2.6" ry="3.4" fill="#04070f" opacity=".6"/>
+          <ellipse cx="30.5" cy="23" rx="2.6" ry="3.4" fill="#04070f" opacity=".6"/>
+          <defs>
+            <linearGradient id="alienG" x1="14" y1="8" x2="38" y2="37">
+              <stop offset="0%" stop-color="#0fae8f"/>
+              <stop offset="100%" stop-color="#7cf4d6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="label" id="alienLabel">Team Aliens</div>
+
+      <div class="public-count"><span class="n" id="alienCount">0</span> donations</div>
+      <div class="public-count-label" id="alienFreqLabel">in this window</div>
+
+      <div class="amount locked-wrap" id="alienAmount"><span class="locked"><span class="lock-icon">🔒</span>???</span></div>
+      <div class="amount-label">raised</div>
+      <div class="pct" id="alienPct">&nbsp;</div>
+      <div class="roster" id="alienRoster"></div>
+    </div>
+
+    <div class="bar-track locked-bar" id="barTrack">
+      <div class="bar-astro" id="barAstro" style="width:50%;"></div>
+      <div class="bar-alien" id="barAlien" style="width:50%;"></div>
+    </div>
+
+    <div class="winner-banner" id="winnerBanner">
+      <div class="trophy">🏆</div>
+      <div class="title" id="winnerTitle">—</div>
+      <div class="margin" id="winnerMargin"></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="heading">Total Donations</div>
+      <div class="big" id="totalCount">0</div>
+      <div class="sub" id="totalFreqLabel">Combined gift count in this window</div>
+    </div>
+    <div class="stat-card">
+      <div class="heading">Last Donation</div>
+      <div class="big" id="lastDonor">—</div>
+      <div class="sub" id="lastDonorMeta">Waiting for data…</div>
+    </div>
+    <div class="stat-card" style="align-content:center">
+      <button id="revealBtn">Reveal Final Results 🎉</button>
+      <div class="reveal-hint" id="revealHint"></div>
+    </div>
+  </div>
+
+  <footer>
+    Every donation powers OttoTHON · Only gifts inside the competition window are counted<br>
+    <span id="lastUpdated">Not yet loaded</span>
+  </footer>
+
+</div>
+
+<!-- ---------- Manage Teams modal ---------- -->
+<div id="teamManagerOverlay">
+  <div class="tm-panel">
+    <div class="tm-header">
+      <h2>Assign Participants</h2>
+      <div class="tm-sub">Search the roster, or add someone by ID/link if they don't show up. Saved automatically in this browser.</div>
+      <div class="tm-summary">
+        <span>🚀 <b id="tmAstroCount">0</b> Astronauts</span>
+        <span>👽 <b id="tmAlienCount">0</b> Aliens</span>
+        <span><b id="tmTotalCount">0</b> total in list</span>
+      </div>
+    </div>
+    <div class="tm-search">
+      <input type="text" id="tmSearch" placeholder="Search participants by name…">
+    </div>
+    <div class="tm-manual">
+      <input type="text" id="tmManualInput" placeholder="Add by ID or fundraising page link…">
+      <button id="tmManualAddBtn">Add</button>
+    </div>
+    <div class="tm-manual-status" id="tmManualStatus"></div>
+    <div class="tm-list" id="tmList">
+      <div class="tm-empty">Loading participant list…</div>
+    </div>
+    <div class="tm-footer">
+      <button class="tm-refresh" id="tmRefreshBtn">↻ Refresh list</button>
+      <button class="tm-close" id="tmCloseBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   CONFIGURE ME
+   -------------------------------------------------------------------------
+   1) EVENT — eventId is used to pull the full participant roster into the
+      "Manage Teams" panel (when your program allows that — see note below).
+
+   2) COMPETITION WINDOW — only donations timestamped inside this range are
+      counted at all, in either metric. Write these in your OWN local time;
+      the page converts them to UTC before querying the API.
+
+   3) TEAM ASSIGNMENTS — done entirely through the "⚙️ Manage Teams" button
+      on the page. Assignments save to this browser's localStorage.
+
+   NOTE ON BULK ROSTER LISTING: some DonorDrive programs restrict the
+   "list every participant in this event" endpoint to credentialed access
+   only — individual participant lookups by ID still work fine either way.
+   If your event returns a 401 here, the Manage Teams panel falls back to
+   an "Add by ID or link" box so you can build your teams one person at a
+   time instead of browsing the full roster.
+
+   Two different metrics are tracked, computed ONLY from donations inside
+   the window above:
+     - number of donations per person/team — PUBLIC, updates live.
+     - dollars raised per team — PRIVATE, hidden until "Reveal Final
+       Results", and is what decides the winning team.
+   ========================================================================= */
+const CONFIG = {
+  apiBase: 'https://events.dancemarathon.com/api/1.6',
+  eventId: '7327',
+  eventDonateUrl: 'https://events.dancemarathon.com/index.cfm?eventID=7327&fuseaction=donate.event',
+  competition: {
+    start: '2026-09-27T11:00:00', // local time — edit to your event's start
+    end:   '2026-09-28T22:00:00'  // local time — edit to your event's end
+  },
+  groups: {
+    astronauts: { label: 'Team Astronauts' },
+    aliens:     { label: 'Team Aliens' }
+  },
+  refreshSeconds: 30
+};
+
+const ASSIGN_KEY = 'ottothon_team_assignments_v1';
+const MANUAL_KEY = 'ottothon_manual_participants_v1';
+
+/* apply the real refresh interval to the labels that mention it, instead
+   of leaving a hardcoded number that can drift out of sync with CONFIG */
+(function initFreqLabels(){
+  const n = CONFIG.refreshSeconds;
+  document.getElementById('astroFreqLabel').textContent = `in this window · updates every ${n}s`;
+  document.getElementById('alienFreqLabel').textContent = `in this window · updates every ${n}s`;
+  document.getElementById('totalFreqLabel').textContent = `Combined gift count in this window · updates every ${n}s`;
+})();
+
+/* ---------- starfield (decorative, runs once) ---------- */
+(function buildStars(){
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 140; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 1.8 + 0.6;
+    s.style.width = size + 'px';
+    s.style.height = size + 'px';
+    s.style.top = Math.random() * 100 + '%';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.animationDuration = (Math.random() * 3 + 2) + 's';
+    s.style.animationDelay = (Math.random() * 3) + 's';
+    container.appendChild(s);
+  }
+})();
+
+/* ---------- live clock ---------- */
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clockTime').textContent =
+    now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('clockDate').textContent =
+    now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* ---------- competition window + countdown ---------- */
+function competitionBounds(){
+  return {
+    startMs: new Date(CONFIG.competition.start).getTime(),
+    endMs: new Date(CONFIG.competition.end).getTime()
+  };
+}
+function competitionPhase(){
+  const { startMs, endMs } = competitionBounds();
+  const now = Date.now();
+  if (now < startMs) return 'before';
+  if (now > endMs) return 'after';
+  return 'during';
+}
+function formatDuration(ms){
+  if (ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const parts = [];
+  if (d) parts.push(d + 'd');
+  parts.push(String(h).padStart(2, '0') + 'h');
+  parts.push(String(m).padStart(2, '0') + 'm');
+  parts.push(String(s).padStart(2, '0') + 's');
+  return parts.join(' ');
+}
+function tickCountdown(){
+  const { startMs, endMs } = competitionBounds();
+  const now = Date.now();
+  const phase = competitionPhase();
+  const el = document.getElementById('competitionStatus');
+  const hint = document.getElementById('revealHint');
+  if (phase === 'before'){
+    el.textContent = `Starts in ${formatDuration(startMs - now)}`;
+    hint.textContent = 'The window hasn\u2019t opened yet — revealing now will show all zeros.';
+  } else if (phase === 'during'){
+    el.textContent = `Ends in ${formatDuration(endMs - now)}`;
+    hint.textContent = 'You can reveal early, but totals will be partial until the window closes.';
+  } else {
+    el.textContent = 'Competition window has closed — ready to reveal 🎉';
+    hint.textContent = '';
+  }
+}
+tickCountdown();
+setInterval(tickCountdown, 1000);
+
+/* ---------- helpers ---------- */
+const intLabel = n => Math.round(n || 0).toLocaleString('en-US');
+const moneyLabel = n => '$' + Math.round(n || 0).toLocaleString('en-US');
+
+function setBanner(html, isError){
+  const el = document.getElementById('banner');
+  if (!html){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="banner${isError ? ' error' : ''}">${html}</div>`;
+}
+
+/* ---------- assignment storage (who's on which team) ---------- */
+function getAssignments(){
+  try { return JSON.parse(localStorage.getItem(ASSIGN_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveAssignments(map){
+  localStorage.setItem(ASSIGN_KEY, JSON.stringify(map));
+}
+function setAssignment(id, team){
+  const map = getAssignments();
+  if (team){ map[id] = team; } else { delete map[id]; }
+  saveAssignments(map);
+}
+function idsForTeam(team){
+  const map = getAssignments();
+  return Object.keys(map).filter(id => map[id] === team);
+}
+
+/* ---------- manually-added participants (fallback for blocked roster listing) ---------- */
+function getManualParticipants(){
+  try { return JSON.parse(localStorage.getItem(MANUAL_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveManualParticipants(map){
+  localStorage.setItem(MANUAL_KEY, JSON.stringify(map));
+}
+function addManualParticipant(id, displayName, teamName){
+  const map = getManualParticipants();
+  map[id] = { displayName, teamName: teamName || null };
+  saveManualParticipants(map);
+}
+function extractParticipantId(raw){
+  raw = (raw || '').trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    const params = new URLSearchParams(url.search);
+    if (params.has('participantID')) return params.get('participantID');
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments.length) return segments[segments.length - 1];
+    return null;
+  } catch {
+    return raw; // not a URL — treat as a raw ID or urlAlias
+  }
+}
+
+/* ---------- DonorDrive API calls ---------- */
+async function fetchParticipant(id){
+  const res = await fetch(`${CONFIG.apiBase}/participants/${id}`);
+  if (!res.ok) throw new Error(`Participant ${id} failed (${res.status})`);
+  return res.json();
+}
+
+async function fetchDonationsInRange(id, startISO, endISO){
+  const where = encodeURIComponent(`createdDateUTC>='${startISO}' AND createdDateUTC<='${endISO}'`);
+  const orderBy = encodeURIComponent('createdDateUTC DESC');
+  let all = [];
+  let offset = 0;
+  const limit = 100;
+  for (let page = 0; page < 10; page++){
+    const res = await fetch(`${CONFIG.apiBase}/participants/${id}/donations?where=${where}&orderBy=${orderBy}&limit=${limit}&offset=${offset}`);
+    if (res.status === 204) break;
+    if (!res.ok) throw new Error(`Donations for ${id} failed (${res.status})`);
+    const batch = await res.json();
+    all = all.concat(batch);
+    if (batch.length < limit) break;
+    offset += limit;
+  }
+  return all;
+}
+
+/* Pull EVERY participant registered for the event, for the Manage Teams panel.
+   Some DonorDrive programs return 401 here — that's handled by the caller. */
+async function fetchAllEventParticipants(eventId){
+  let all = [];
+  let offset = 0;
+  const limit = 100;
+  for (let page = 0; page < 30; page++){
+    const res = await fetch(`${CONFIG.apiBase}/events/${eventId}/participants?limit=${limit}&offset=${offset}&orderBy=${encodeURIComponent('displayName ASC')}`);
+    if (res.status === 204) break;
+    if (!res.ok) throw new Error(`${res.status} ${res.status === 401 ? 'Unauthorized' : 'error'}`);
+    const batch = await res.json();
+    all = all.concat(batch);
+    if (batch.length < limit) break;
+    offset += limit;
+  }
+  return all;
+}
+
+/* fetch + aggregate one side's roster, counting ONLY in-window donations.
+   moneyTotal decides the winner and stays hidden until reveal.
+   donationCount is public and always shown. */
+async function loadGroup(ids, startISO, endISO){
+  if (!ids.length) return { people: [], moneyTotal: 0, donationCount: 0, lastDonation: null };
+
+  const profiles = await Promise.all(ids.map(id => fetchParticipant(id)));
+  const donationLists = await Promise.all(ids.map(id => fetchDonationsInRange(id, startISO, endISO)));
+
+  const people = profiles.map((profile, i) => {
+    const donations = donationLists[i];
+    return {
+      displayName: profile.displayName,
+      links: profile.links,
+      numDonations: donations.length,
+      sumDonations: donations.reduce((s, d) => s + (d.amount || 0), 0)
+    };
+  });
+
+  donationLists.forEach((list, i) => list.forEach(d => { d.participantName = profiles[i].displayName; }));
+  const flat = donationLists.flat();
+  let lastDonation = null;
+  if (flat.length){
+    flat.sort((a, b) => new Date(b.createdDateUTC) - new Date(a.createdDateUTC));
+    lastDonation = flat[0];
+  }
+
+  const moneyTotal = people.reduce((sum, p) => sum + p.sumDonations, 0);
+  const donationCount = people.reduce((sum, p) => sum + p.numDonations, 0);
+
+  return { people, moneyTotal, donationCount, lastDonation };
+}
+
+/* ---------- demo fallback so the page is never blank ---------- */
+const DEMO = {
+  astro: {
+    people: [
+      { displayName: 'Jordan P.', numDonations: 21, sumDonations: 5210, links: { donate: '#' } },
+      { displayName: 'Maya R.', numDonations: 17, sumDonations: 4120, links: { donate: '#' } },
+      { displayName: 'Chris T.', numDonations: 9, sumDonations: 3150, links: { donate: '#' } }
+    ],
+    moneyTotal: 12480, donationCount: 47
+  },
+  alien: {
+    people: [
+      { displayName: 'Devon L.', numDonations: 19, sumDonations: 4800, links: { donate: '#' } },
+      { displayName: 'Priya S.', numDonations: 14, sumDonations: 3450, links: { donate: '#' } },
+      { displayName: 'Alex M.', numDonations: 8, sumDonations: 2000, links: { donate: '#' } }
+    ],
+    moneyTotal: 10250, donationCount: 41
+  },
+  lastDonation: { displayName: 'Emily W.', participantName: 'Jordan P.', amount: 75, when: '2 minutes ago' }
+};
+
+let latestAstro = null;
+let latestAlien = null;
+let revealed = false;
+
+function renderRoster(containerId, people){
+  const el = document.getElementById(containerId);
+  if (!people.length){
+    el.innerHTML = `<div class="roster-empty">Nobody assigned yet — click "Manage Teams" above to add people.</div>`;
+    return;
+  }
+  const sorted = [...people].sort((a, b) => (b.numDonations || 0) - (a.numDonations || 0));
+  el.innerHTML = sorted.map(p => `
+    <div class="roster-row">
+      <span class="roster-name" title="${p.displayName}">${p.displayName}</span>
+      <span class="roster-amount">${intLabel(p.numDonations)} gift${p.numDonations === 1 ? '' : 's'}</span>
+      ${p.links && p.links.donate ? `<a class="roster-give" href="${p.links.donate}" target="_blank" rel="noopener">Give</a>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderPublic(astro, alien, last, opts){
+  opts = opts || {};
+
+  document.getElementById('astroCount').textContent = intLabel(astro.donationCount);
+  document.getElementById('alienCount').textContent = intLabel(alien.donationCount);
+  document.getElementById('totalCount').textContent = intLabel(astro.donationCount + alien.donationCount);
+
+  renderRoster('astroRoster', astro.people);
+  renderRoster('alienRoster', alien.people);
+
+  if (last){
+    document.getElementById('lastDonor').textContent = last.displayName || 'Anonymous';
+    document.getElementById('lastDonorMeta').textContent =
+      (last.amount ? ' to ' + last.participantName : '') +
+      (last.when ? ' · ' + last.when : '');
+  } else {
+    document.getElementById('lastDonor').textContent = '—';
+    document.getElementById('lastDonorMeta').textContent = 'No gifts in this window yet';
+  }
+
+  document.getElementById('lastUpdated').textContent =
+    (opts.demo ? 'Showing demo data · ' : 'Live · ') +
+    'Last checked ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+/* ---------- reveal animation (money only) ---------- */
+function animateNumber(el, from, to, duration, formatFn, onFrame){
+  const start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const value = from + (to - from) * eased;
+    el.textContent = formatFn(value);
+    if (onFrame) onFrame(eased);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function spawnConfetti(){
+  const colors = ['#8fd0ff', '#7cf4d6', '#ffcf6b', '#ff9fd6', '#b9d4ff'];
+  const container = document.getElementById('confetti');
+  for (let i = 0; i < 60; i++){
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const size = Math.random() * 7 + 4;
+    piece.style.width = size + 'px';
+    piece.style.height = (size * 0.4) + 'px';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDuration = (Math.random() * 1.5 + 2) + 's';
+    piece.style.animationDelay = (Math.random() * 0.6) + 's';
+    container.appendChild(piece);
+    setTimeout(() => piece.remove(), 4200);
+  }
+}
+
+function doReveal(){
+  if (!latestAstro || !latestAlien) return;
+  revealed = true;
+
+  const astroMoney = latestAstro.moneyTotal;
+  const alienMoney = latestAlien.moneyTotal;
+  const grandMoney = astroMoney + alienMoney;
+  const astroPct = grandMoney ? Math.round((astroMoney / grandMoney) * 100) : 50;
+
+  const astroAmountEl = document.getElementById('astroAmount');
+  const alienAmountEl = document.getElementById('alienAmount');
+  astroAmountEl.classList.remove('locked-wrap');
+  alienAmountEl.classList.remove('locked-wrap');
+  astroAmountEl.innerHTML = '<span id="astroMoney">$0</span>';
+  alienAmountEl.innerHTML = '<span id="alienMoney">$0</span>';
+  document.getElementById('barTrack').classList.remove('locked-bar');
+
+  document.getElementById('astroPct').textContent = '';
+  document.getElementById('alienPct').textContent = '';
+
+  const revealBtn = document.getElementById('revealBtn');
+  revealBtn.disabled = true;
+  revealBtn.textContent = 'Revealing…';
+  document.getElementById('revealHint').textContent = '';
+
+  const barAstro = document.getElementById('barAstro');
+  const barAlien = document.getElementById('barAlien');
+
+  animateNumber(document.getElementById('astroMoney'), 0, astroMoney, 1600, moneyLabel, eased => {
+    barAstro.style.width = (astroPct * eased) + '%';
+    barAlien.style.width = (100 - astroPct * eased) + '%';
+  });
+  animateNumber(document.getElementById('alienMoney'), 0, alienMoney, 1600, moneyLabel);
+
+  setTimeout(() => {
+    document.getElementById('astroPct').textContent = astroPct + '%';
+    document.getElementById('alienPct').textContent = (100 - astroPct) + '%';
+
+    revealBtn.classList.add('hidden');
+    const winnerBanner = document.getElementById('winnerBanner');
+    winnerBanner.classList.add('show');
+
+    const totalGifts = latestAstro.donationCount + latestAlien.donationCount;
+
+    if (astroMoney === alienMoney){
+      document.getElementById('winnerTitle').textContent = "It's a tie!";
+      document.getElementById('winnerMargin').textContent =
+        `Both sides raised ${moneyLabel(astroMoney)} across ${intLabel(totalGifts)} total gifts. Incredible work, everyone.`;
+    } else {
+      const astroWins = astroMoney > alienMoney;
+      const winnerLabel = astroWins ? CONFIG.groups.astronauts.label : CONFIG.groups.aliens.label;
+      const winnerCard = document.getElementById(astroWins ? 'astroCard' : 'alienCard');
+      winnerCard.classList.add('winner');
+      const diff = Math.abs(astroMoney - alienMoney);
+      document.getElementById('winnerTitle').textContent = `${winnerLabel} win!`;
+      document.getElementById('winnerMargin').textContent =
+        `${winnerLabel} raised ${moneyLabel(diff)} more — ${moneyLabel(grandMoney)} total across ${intLabel(totalGifts)} gifts for OttoTHON.`;
+      spawnConfetti();
+    }
+  }, 1700);
+}
+
+document.getElementById('revealBtn').addEventListener('click', () => {
+  const btn = document.getElementById('revealBtn');
+  btn.disabled = true;
+  btn.textContent = 'Fetching final results…';
+  refresh(true).then(() => doReveal());
+});
+
+function showDemo(){
+  latestAstro = DEMO.astro;
+  latestAlien = DEMO.alien;
+  renderPublic(DEMO.astro, DEMO.alien, DEMO.lastDonation, { demo: true });
+}
+
+/* THE FIX: read team membership from the localStorage assignments
+   (idsForTeam), not from a CONFIG.groups.*.participants array — that
+   array doesn't exist anymore now that assignment happens in the UI. */
+async function refresh(forReveal){
+  const astroIds = idsForTeam('astronauts');
+  const alienIds = idsForTeam('aliens');
+
+  if (!astroIds.length && !alienIds.length){
+    setBanner(
+      `Running in <strong>demo mode</strong>. Click <strong>⚙️ Manage Teams</strong> above to assign real people to Astronauts or Aliens.`,
+      false
+    );
+    showDemo();
+    return;
+  }
+
+  const startISO = new Date(CONFIG.competition.start).toISOString();
+  const endISO = new Date(CONFIG.competition.end).toISOString();
+
+  try {
+    const [astro, alien] = await Promise.all([
+      loadGroup(astroIds, startISO, endISO),
+      loadGroup(alienIds, startISO, endISO)
+    ]);
+    latestAstro = astro;
+    latestAlien = alien;
+
+    let last = null;
+    const candidates = [astro.lastDonation, alien.lastDonation].filter(Boolean);
+    if (candidates.length){
+      candidates.sort((a, b) => new Date(b.createdDateUTC) - new Date(a.createdDateUTC));
+      const top = candidates[0];
+      last = {
+        displayName: top.displayName || 'Anonymous',
+        participantName: top.participantName,
+        amount: top.amount,
+        when: new Date(top.createdDateUTC).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+    }
+
+    setBanner(null);
+    renderPublic(astro, alien, last, { demo: false });
+  } catch (err) {
+    console.error(err);
+    if (!forReveal){
+      setBanner(
+        `Couldn't reach the DonorDrive API (${err.message}). If you just opened this file directly, ` +
+        `run a local server instead (e.g. <code>python3 -m http.server</code> in this folder, then visit ` +
+        `<code>http://localhost:8000</code>).`,
+        true
+      );
+      showDemo();
+    }
+  }
+}
+
+refresh();
+setInterval(refresh, CONFIG.refreshSeconds * 1000);
+
+/* =========================================================================
+   Manage Teams panel
+   ========================================================================= */
+let allParticipants = null;     // cached bulk roster (null = not yet loaded)
+let rosterBlocked = false;      // true if bulk listing came back 401/403/etc.
+let rosterErrorMessage = '';
+let tmSearchTerm = '';
+
+function combinedRoster(){
+  const map = new Map();
+  (allParticipants || []).forEach(p => {
+    map.set(String(p.participantID), { participantID: p.participantID, displayName: p.displayName, teamName: p.teamName });
+  });
+  Object.entries(getManualParticipants()).forEach(([id, info]) => {
+    map.set(id, { participantID: id, displayName: info.displayName, teamName: info.teamName });
+  });
+  return Array.from(map.values());
+}
+
+function tmRenderList(){
+  const listEl = document.getElementById('tmList');
+  const assignments = getAssignments();
+  const roster = combinedRoster();
+
+  document.getElementById('tmAstroCount').textContent = idsForTeam('astronauts').length;
+  document.getElementById('tmAlienCount').textContent = idsForTeam('aliens').length;
+  document.getElementById('tmTotalCount').textContent = roster.length;
+
+  if (allParticipants === null){
+    listEl.innerHTML = `<div class="tm-empty">Loading participant list…</div>`;
+    return;
+  }
+
+  const notice = rosterBlocked
+    ? `<div class="tm-empty">Add people one at a time with "Add by ID or link" above</div>`
+    : '';
+
+  if (!roster.length){
+    listEl.innerHTML = notice || `<div class="tm-empty">No registered participants found yet.</div>`;
+    return;
+  }
+
+  const term = tmSearchTerm.trim().toLowerCase();
+  const filtered = term ? roster.filter(p => (p.displayName || '').toLowerCase().includes(term)) : roster;
+  const shown = filtered.slice(0, 250);
+
+  const rows = shown.length
+    ? shown.map(p => {
+        const id = String(p.participantID);
+        const current = assignments[id];
+        return `
+          <div class="tm-row" data-id="${id}">
+            <div class="tm-name">
+              <div class="n" title="${p.displayName}">${p.displayName}</div>
+              <div class="t">${p.teamName ? 'DonorDrive team: ' + p.teamName : 'No DonorDrive team'}</div>
+            </div>
+            <button class="tm-pill astro-pill ${current === 'astronauts' ? 'active' : ''}" data-team="astronauts">Astronauts</button>
+            <button class="tm-pill alien-pill ${current === 'aliens' ? 'active' : ''}" data-team="aliens">Aliens</button>
+          </div>
+        `;
+      }).join('')
+    : `<div class="tm-empty">No participants match "${tmSearchTerm}".</div>`;
+
+  const moreNote = filtered.length > shown.length
+    ? `<div class="tm-empty">+ ${filtered.length - shown.length} more — refine your search to see them.</div>`
+    : '';
+
+  listEl.innerHTML = notice + rows + moreNote;
+}
+
+let refreshDebounce = null;
+function tmToggle(id, team){
+  const current = getAssignments()[id];
+  setAssignment(id, current === team ? null : team);
+  tmRenderList();
+  clearTimeout(refreshDebounce);
+  refreshDebounce = setTimeout(() => refresh(), 700);
+}
+
+document.getElementById('tmList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tm-pill');
+  if (!btn) return;
+  const row = e.target.closest('.tm-row');
+  tmToggle(row.dataset.id, btn.dataset.team);
+});
+
+document.getElementById('tmSearch').addEventListener('input', (e) => {
+  tmSearchTerm = e.target.value;
+  tmRenderList();
+});
+
+async function tmManualAdd(){
+  const input = document.getElementById('tmManualInput');
+  const statusEl = document.getElementById('tmManualStatus');
+  const id = extractParticipantId(input.value);
+
+  if (!id){
+    statusEl.className = 'tm-manual-status error';
+    statusEl.textContent = 'Paste a participant ID or a fundraising page link first.';
+    return;
+  }
+
+  statusEl.className = 'tm-manual-status';
+  statusEl.textContent = 'Looking up…';
+
+  try {
+    const profile = await fetchParticipant(id);
+    addManualParticipant(String(profile.participantID || id), profile.displayName, profile.teamName);
+    input.value = '';
+    statusEl.className = 'tm-manual-status ok';
+    statusEl.textContent = `Added ${profile.displayName} — assign them to a team below.`;
+    tmRenderList();
+  } catch (err) {
+    statusEl.className = 'tm-manual-status error';
+    statusEl.textContent = `Couldn't find that participant (${err.message}). Double-check the ID or link.`;
+  }
+}
+document.getElementById('tmManualAddBtn').addEventListener('click', tmManualAdd);
+document.getElementById('tmManualInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') tmManualAdd();
+});
+
+async function tmLoadRoster(force){
+  if (allParticipants && !force) { tmRenderList(); return; }
+  allParticipants = null;
+  rosterBlocked = false;
+  rosterErrorMessage = '';
+  tmRenderList();
+  try {
+    allParticipants = await fetchAllEventParticipants(CONFIG.eventId);
+  } catch (err) {
+    console.error(err);
+    allParticipants = [];
+    rosterBlocked = true;
+    rosterErrorMessage = err.message;
+  }
+  tmRenderList();
+}
+
+document.getElementById('openManagerBtn').addEventListener('click', () => {
+  document.getElementById('teamManagerOverlay').classList.add('open');
+  tmLoadRoster(false);
+});
+document.getElementById('tmCloseBtn').addEventListener('click', () => {
+  document.getElementById('teamManagerOverlay').classList.remove('open');
+  refresh();
+});
+document.getElementById('tmRefreshBtn').addEventListener('click', () => tmLoadRoster(true));
+document.getElementById('teamManagerOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'teamManagerOverlay') {
+    document.getElementById('teamManagerOverlay').classList.remove('open');
+    refresh();
+  }
+});
+</script>
+
+</body>
+</html>
