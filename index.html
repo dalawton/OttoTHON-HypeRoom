@@ -302,7 +302,7 @@
       </div>
       <div class="label" id="astroLabel">Team Astronauts</div>
 
-      <div class="public-count"><span class="n" id="astroCount">0</span> donations</div>
+      <div class="public-count"><span class="n" id="astroCount"><span class="locked"><span class="lock-icon">🔒</span>???</span></span> donations</div>
       <div class="public-count-label" id="astroFreqLabel">in this window</div>
 
       <div class="amount locked-wrap" id="astroAmount"><span class="locked"><span class="lock-icon">🔒</span>???</span></div>
@@ -330,7 +330,7 @@
       </div>
       <div class="label" id="alienLabel">Team Aliens</div>
 
-      <div class="public-count"><span class="n" id="alienCount">0</span> donations</div>
+      <div class="public-count"><span class="n" id="alienCount"><span class="locked"><span class="lock-icon">🔒</span>???</span></span> donations</div>
       <div class="public-count-label" id="alienFreqLabel">in this window</div>
 
       <div class="amount locked-wrap" id="alienAmount"><span class="locked"><span class="lock-icon">🔒</span>???</span></div>
@@ -354,7 +354,7 @@
   <div class="stats">
     <div class="stat-card">
       <div class="heading">Total Donations</div>
-      <div class="big" id="totalCount">0</div>
+      <div class="big" id="totalCount"><span class="locked"><span class="lock-icon">🔒</span>???</span></div>
       <div class="sub" id="totalFreqLabel">Combined gift count in this window</div>
     </div>
     <div class="stat-card">
@@ -399,7 +399,11 @@
       <div class="tm-empty">Loading participant list…</div>
     </div>
     <div class="tm-footer">
-      <button class="tm-refresh" id="tmRefreshBtn">↻ Refresh list</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="tm-refresh" id="tmRefreshBtn">↻ Refresh list</button>
+        <button class="tm-refresh" id="tmExportBtn">⬆ Export teams</button>
+        <button class="tm-refresh" id="tmImportBtn">⬇ Import teams</button>
+      </div>
       <button class="tm-close" id="tmCloseBtn">Done</button>
     </div>
   </div>
@@ -428,9 +432,11 @@
 
    Two different metrics are tracked, computed ONLY from donations inside
    the window above:
-     - number of donations per person/team — PUBLIC, updates live.
+     - number of donations per person/team — PUBLIC, updates live, and is
+       what DECIDES the winning team.
      - dollars raised per team — PRIVATE, hidden until "Reveal Final
-       Results", and is what decides the winning team.
+       Results". It's the big finale number; it only matters for the
+       winner if the donation counts are exactly tied (tie-breaker).
    ========================================================================= */
 const CONFIG = {
   apiBase: 'https://events.dancemarathon.com/api/1.6',
@@ -454,9 +460,9 @@ const MANUAL_KEY = 'ottothon_manual_participants_v1';
    of leaving a hardcoded number that can drift out of sync with CONFIG */
 (function initFreqLabels(){
   const n = CONFIG.refreshSeconds;
-  document.getElementById('astroFreqLabel').textContent = `in this window · updates every ${n}s`;
-  document.getElementById('alienFreqLabel').textContent = `in this window · updates every ${n}s`;
-  document.getElementById('totalFreqLabel').textContent = `Combined gift count in this window · updates every ${n}s`;
+  document.getElementById('astroFreqLabel').textContent = 'hidden until the final reveal';
+  document.getElementById('alienFreqLabel').textContent = 'hidden until the final reveal';
+  document.getElementById('totalFreqLabel').textContent = 'Revealed at the end';
 })();
 
 /* ---------- starfield (decorative, runs once) ---------- */
@@ -536,10 +542,15 @@ tickCountdown();
 setInterval(tickCountdown, 1000);
 
 /* ---------- helpers ---------- */
+function escapeHtml(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 const intLabel = n => Math.round(n || 0).toLocaleString('en-US');
 const moneyLabel = n => '$' + Math.round(n || 0).toLocaleString('en-US');
 function timeAgo(ts){
-  if (!ts) return 'No gifts yet';
+  if (!ts) return '';
   const diff = Date.now() - ts;
   if (diff < 60000) return 'Just now';
   const mins = Math.floor(diff / 60000);
@@ -651,8 +662,21 @@ async function fetchAllEventParticipants(eventId){
 async function loadGroup(ids, startISO, endISO){
   if (!ids.length) return { people: [], moneyTotal: 0, donationCount: 0, lastDonation: null };
 
-  const profiles = await Promise.all(ids.map(id => fetchParticipant(id)));
-  const donationLists = await Promise.all(ids.map(id => fetchDonationsInRange(id, startISO, endISO)));
+  // allSettled: if one person's lookup fails, skip them instead of
+  // blanking the whole scoreboard. Only throw if EVERYONE failed.
+  const settled = await Promise.allSettled(ids.map(async id => {
+    const [profile, donations] = await Promise.all([
+      fetchParticipant(id),
+      fetchDonationsInRange(id, startISO, endISO)
+    ]);
+    return { profile, donations };
+  }));
+  const ok = settled.filter(r => r.status === 'fulfilled').map(r => r.value);
+  settled.filter(r => r.status === 'rejected').forEach(r => console.warn('Skipped participant:', r.reason));
+  if (!ok.length) throw settled[0].reason;
+
+  const profiles = ok.map(r => r.profile);
+  const donationLists = ok.map(r => r.donations);
 
   const people = profiles.map((profile, i) => {
     const donations = donationLists[i];
@@ -706,6 +730,7 @@ const DEMO = {
 let latestAstro = null;
 let latestAlien = null;
 let revealed = false;
+let countAnimEnd = 0;   // pause count updates while the reveal animation runs
 
 function renderRoster(containerId, people){
   const el = document.getElementById(containerId);
@@ -721,9 +746,8 @@ function renderRoster(containerId, people){
   });
   el.innerHTML = sorted.map(p => `
     <div class="roster-row">
-      <span class="roster-name" title="${p.displayName}">${p.displayName}</span>
+      <span class="roster-name" title="${escapeHtml(p.displayName)}">${escapeHtml(p.displayName)}</span>
       <span class="roster-amount">${timeAgo(p.lastDonationAt)}</span>
-      ${p.links && p.links.donate ? `<a class="roster-give" href="${p.links.donate}" target="_blank" rel="noopener">Give</a>` : ''}
     </div>
   `).join('');
 }
@@ -731,9 +755,12 @@ function renderRoster(containerId, people){
 function renderPublic(astro, alien, last, opts){
   opts = opts || {};
 
-  document.getElementById('astroCount').textContent = intLabel(astro.donationCount);
-  document.getElementById('alienCount').textContent = intLabel(alien.donationCount);
-  document.getElementById('totalCount').textContent = intLabel(astro.donationCount + alien.donationCount);
+  // Donation counts stay hidden until the final reveal (see doReveal).
+  if (revealed && Date.now() > countAnimEnd){
+    document.getElementById('astroCount').textContent = intLabel(astro.donationCount);
+    document.getElementById('alienCount').textContent = intLabel(alien.donationCount);
+    document.getElementById('totalCount').textContent = intLabel(astro.donationCount + alien.donationCount);
+  }
 
   renderRoster('astroRoster', astro.people);
   renderRoster('alienRoster', alien.people);
@@ -789,10 +816,13 @@ function doReveal(){
   if (!latestAstro || !latestAlien) return;
   revealed = true;
 
+  const astroDonations = latestAstro.donationCount;
+  const alienDonations = latestAlien.donationCount;
+  const grandGifts = astroDonations + alienDonations;
+  const astroPct = grandGifts ? Math.round((astroDonations / grandGifts) * 100) : 50;
+
   const astroMoney = latestAstro.moneyTotal;
   const alienMoney = latestAlien.moneyTotal;
-  const grandMoney = astroMoney + alienMoney;
-  const astroPct = grandMoney ? Math.round((astroMoney / grandMoney) * 100) : 50;
 
   const astroAmountEl = document.getElementById('astroAmount');
   const alienAmountEl = document.getElementById('alienAmount');
@@ -819,6 +849,13 @@ function doReveal(){
   });
   animateNumber(document.getElementById('alienMoney'), 0, alienMoney, 1600, moneyLabel);
 
+  // counts are revealed together with the totals
+  countAnimEnd = Date.now() + 1800;
+  const countFmt = n => intLabel(n);
+  animateNumber(document.getElementById('astroCount'), 0, astroDonations, 1600, countFmt);
+  animateNumber(document.getElementById('alienCount'), 0, alienDonations, 1600, countFmt);
+  animateNumber(document.getElementById('totalCount'), 0, grandGifts, 1600, countFmt);
+
   setTimeout(() => {
     document.getElementById('astroPct').textContent = astroPct + '%';
     document.getElementById('alienPct').textContent = (100 - astroPct) + '%';
@@ -827,27 +864,43 @@ function doReveal(){
     const winnerBanner = document.getElementById('winnerBanner');
     winnerBanner.classList.add('show');
 
-    const totalGifts = latestAstro.donationCount + latestAlien.donationCount;
+    const grandMoney = astroMoney + alienMoney;
+    const moneyLine = `Together you raised ${moneyLabel(grandMoney)} for Upstate Golisano Children's Hospital.`;
 
-    if (astroMoney === alienMoney){
+    if (astroDonations === alienDonations && astroMoney === alienMoney){
       document.getElementById('winnerTitle').textContent = "It's a tie!";
       document.getElementById('winnerMargin').textContent =
-        `Both sides raised ${moneyLabel(astroMoney)} across ${intLabel(totalGifts)} total gifts. Incredible work, everyone.`;
+        `Both teams recorded ${intLabel(astroDonations)} donations. ${moneyLine}`;
+      spawnConfetti();
     } else {
-      const astroWins = astroMoney > alienMoney;
+      // Winner = most donations. Exact count tie → higher dollars breaks it.
+      const astroWins = astroDonations !== alienDonations
+        ? astroDonations > alienDonations
+        : astroMoney > alienMoney;
       const winnerLabel = astroWins ? CONFIG.groups.astronauts.label : CONFIG.groups.aliens.label;
       const winnerCard = document.getElementById(astroWins ? 'astroCard' : 'alienCard');
       winnerCard.classList.add('winner');
-      const diff = Math.abs(astroMoney - alienMoney);
+      const diff = Math.abs(astroDonations - alienDonations);
       document.getElementById('winnerTitle').textContent = `${winnerLabel} win!`;
-      document.getElementById('winnerMargin').textContent =
-        `${winnerLabel} raised ${moneyLabel(diff)} more — ${moneyLabel(grandMoney)} total across ${intLabel(totalGifts)} gifts for OttoTHON.`;
+      document.getElementById('winnerMargin').textContent = diff
+        ? `${winnerLabel} had ${intLabel(diff)} more donations — ${intLabel(grandGifts)} total gifts. ${moneyLine}`
+        : `Dead even on donations (${intLabel(astroDonations)} each) — ${winnerLabel} take it on dollars raised. ${moneyLine}`;
       spawnConfetti();
     }
   }, 1700);
 }
 
 document.getElementById('revealBtn').addEventListener('click', () => {
+  const enteredPassword = prompt('Enter the reveal password:');
+  if (enteredPassword === null) return;
+
+  if (enteredPassword.trim().toLowerCase() !== 'hype') {
+    setBanner('Incorrect password. Final results are still locked.', true);
+    document.getElementById('revealHint').textContent = 'Enter the correct password to unlock the final results.';
+    return;
+  }
+
+  setBanner(null);
   const btn = document.getElementById('revealBtn');
   btn.disabled = true;
   btn.textContent = 'Fetching final results…';
@@ -977,17 +1030,17 @@ function tmRenderList(){
         const id = String(p.participantID);
         const current = assignments[id];
         return `
-          <div class="tm-row" data-id="${id}">
+          <div class="tm-row" data-id="${escapeHtml(id)}">
             <div class="tm-name">
-              <div class="n" title="${p.displayName}">${p.displayName}</div>
-              <div class="t">${p.teamName ? 'DonorDrive team: ' + p.teamName : 'No DonorDrive team'}</div>
+              <div class="n" title="${escapeHtml(p.displayName)}">${escapeHtml(p.displayName)}</div>
+              <div class="t">${p.teamName ? 'DonorDrive team: ' + escapeHtml(p.teamName) : 'No DonorDrive team'}</div>
             </div>
             <button class="tm-pill astro-pill ${current === 'astronauts' ? 'active' : ''}" data-team="astronauts">Astronauts</button>
             <button class="tm-pill alien-pill ${current === 'aliens' ? 'active' : ''}" data-team="aliens">Aliens</button>
           </div>
         `;
       }).join('')
-    : `<div class="tm-empty">No participants match "${tmSearchTerm}".</div>`;
+    : `<div class="tm-empty">No participants match "${escapeHtml(tmSearchTerm)}".</div>`;
 
   const moreNote = filtered.length > shown.length
     ? `<div class="tm-empty">+ ${filtered.length - shown.length} more — refine your search to see them.</div>`
@@ -1064,6 +1117,38 @@ async function tmLoadRoster(force){
   }
   tmRenderList();
 }
+
+/* ---------- export / import teams (move setup between browsers) ---------- */
+document.getElementById('tmExportBtn').addEventListener('click', async () => {
+  const payload = JSON.stringify({ assignments: getAssignments(), manual: getManualParticipants() });
+  const statusEl = document.getElementById('tmManualStatus');
+  try {
+    await navigator.clipboard.writeText(payload);
+    statusEl.className = 'tm-manual-status ok';
+    statusEl.textContent = 'Teams copied to clipboard. Paste them via "Import teams" on the other browser.';
+  } catch {
+    window.prompt('Copy this text, then use "Import teams" on the other browser:', payload);
+  }
+});
+
+document.getElementById('tmImportBtn').addEventListener('click', () => {
+  const statusEl = document.getElementById('tmManualStatus');
+  const raw = window.prompt('Paste the exported teams text here:');
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (!data || typeof data.assignments !== 'object') throw new Error('bad format');
+    saveAssignments(data.assignments);
+    saveManualParticipants(data.manual && typeof data.manual === 'object' ? data.manual : {});
+    statusEl.className = 'tm-manual-status ok';
+    statusEl.textContent = 'Teams imported.';
+    tmRenderList();
+    refresh();
+  } catch {
+    statusEl.className = 'tm-manual-status error';
+    statusEl.textContent = "Couldn't read that. Make sure you pasted the full exported text.";
+  }
+});
 
 document.getElementById('openManagerBtn').addEventListener('click', () => {
   document.getElementById('teamManagerOverlay').classList.add('open');
