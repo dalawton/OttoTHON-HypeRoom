@@ -80,6 +80,13 @@
     font-size:13px; font-weight:600;
   }
   .window-badge .dot{ width:7px; height:7px; border-radius:50%; background:var(--live-dot); }
+  .window-actions{ display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; }
+  .mini-btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 14px; border:none;
+    border-radius:999px; cursor:pointer; font-family:'Inter', sans-serif; font-size:12.5px; font-weight:600;
+    background:rgba(255,255,255,0.06); border:1px solid var(--panel-border); color:var(--text-primary);
+  }
+  .mini-btn:hover{ border-color:rgba(146,190,255,0.5); }
 
   .banner{
     background:rgba(255,196,90,0.09); border:1px solid rgba(255,196,90,0.35); color:#ffd58a;
@@ -279,7 +286,10 @@
   </header>
 
   <div class="hero">
-    <div class="window-badge"><span class="dot"></span><span id="competitionStatus">Loading window…</span></div>
+    <div class="window-actions">
+      <div class="window-badge"><span class="dot"></span><span id="competitionStatus">Loading window…</span></div>
+      <button id="editWindowBtn" class="mini-btn" type="button">✏️ Edit window</button>
+    </div>
   </div>
 
   <div id="banner"></div>
@@ -455,6 +465,67 @@ const CONFIG = {
 
 const ASSIGN_KEY = 'ottothon_team_assignments_v1';
 const MANUAL_KEY = 'ottothon_manual_participants_v1';
+const WINDOW_KEY = 'ottothon_competition_window_v1';
+
+function getStoredCompetitionWindow(){
+  try {
+    const value = JSON.parse(localStorage.getItem(WINDOW_KEY));
+    if (value && typeof value.start === 'string' && typeof value.end === 'string') {
+      return value;
+    }
+  } catch (err) {
+    console.warn('Could not read saved competition window:', err);
+  }
+  return null;
+}
+
+function saveCompetitionWindow(windowConfig){
+  localStorage.setItem(WINDOW_KEY, JSON.stringify(windowConfig));
+}
+
+function applyCompetitionWindow(windowConfig){
+  if (!windowConfig || !windowConfig.start || !windowConfig.end) return;
+  CONFIG.competition.start = windowConfig.start;
+  CONFIG.competition.end = windowConfig.end;
+  saveCompetitionWindow(windowConfig);
+  tickCountdown();
+  refresh();
+}
+
+function editCompetitionWindow(){
+  const password = prompt('Enter the password to change the competition window:');
+  if (password === null) return;
+  if (password.trim().toLowerCase() !== 'hype') {
+    setBanner('Incorrect password. The competition window is locked.', true);
+    return;
+  }
+
+  const currentStart = CONFIG.competition.start;
+  const currentEnd = CONFIG.competition.end;
+  const nextStart = prompt('New start date/time (example: 2026-09-27T11:00:00):', currentStart);
+  if (nextStart === null) return;
+  const nextEnd = prompt('New end date/time (example: 2026-09-28T22:00:00):', currentEnd);
+  if (nextEnd === null) return;
+
+  const startDate = new Date(nextStart);
+  const endDate = new Date(nextEnd);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    setBanner('Invalid date format. Use a valid date/time like 2026-09-27T11:00:00.', true);
+    return;
+  }
+  if (endDate.getTime() <= startDate.getTime()) {
+    setBanner('The end time must be after the start time.', true);
+    return;
+  }
+
+  applyCompetitionWindow({ start: nextStart, end: nextEnd });
+  setBanner('Competition window updated successfully.', false);
+}
+
+const storedWindow = getStoredCompetitionWindow();
+if (storedWindow) {
+  CONFIG.competition = { ...CONFIG.competition, ...storedWindow };
+}
 
 /* apply the real refresh interval to the labels that mention it, instead
    of leaving a hardcoded number that can drift out of sync with CONFIG */
@@ -889,6 +960,8 @@ function doReveal(){
     }
   }, 1700);
 }
+
+document.getElementById('editWindowBtn').addEventListener('click', editCompetitionWindow);
 
 document.getElementById('revealBtn').addEventListener('click', () => {
   const enteredPassword = prompt('Enter the reveal password:');
